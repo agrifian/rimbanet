@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RimbaNet Neural Engine</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+    <!-- Leaflet for interactive map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<!-- ═══ BACKGROUND GRID ═══ -->
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-scanline" aria-hidden="true"></div>
+
+<!-- ═══ HEADER ═══ -->
+<header class="app-header">
+    <div class="header-inner">
+        <div class="title-pill-box">
+            <div class="title-pill-inner">
+                <h1 class="title-text-shine">RIMBANET NEURAL ENGINE</h1>
+            </div>
+        </div>
+    </div>
+    <!-- Static divider — no animation sweep -->
+    <div class="header-divider"></div>
+    <p class="header-subtitle">
+        REAL-TIME MULTI-SECTOR DEFORESTATION MONITORING
+        &nbsp;·&nbsp; CLICK THE MAP TO INPUT COORDINATES, CONFIGURE GRID, AND INITIALIZE SCAN.
+    </p>
+</header>
+
+<!-- ═══ MAIN LAYOUT ═══ -->
+<main class="app-main">
+
+    <!-- ── ROW 1: MAP + CONTROLS ─────────────────────────────────────────── -->
+    <div class="row-top">
+
+        <!-- MAP PANEL -->
+        <div class="panel panel-map">
+            <h3 class="panel-title text-shine">SATELLITE INTERFACE</h3>
+            <!-- Static divider -->
+            <div class="panel-divider"></div>
+            <div id="map-container"></div>
+            <div id="map-toast" class="map-toast" aria-live="polite"></div>
+        </div>
+
+        <!-- CONTROLS PANEL -->
+        <div class="panel panel-controls">
+            <h3 class="panel-title text-shine">SYSTEM CONTROLS</h3>
+            <!-- Static divider -->
+            <div class="panel-divider"></div>
+
+            <div class="form-group">
+                <label class="form-label" for="input-coordinates">TARGET COORDINATES</label>
+                <input
+                    type="text"
+                    id="input-coordinates"
+                    class="form-input"
+                    placeholder="-0.5000, 114.5000"
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="input-luas">
+                    SCAN RADIUS (KM)
+                    <span class="luas-value" id="luas-display">3.84 km</span>
+                </label>
+                <input
+                    type="range"
+                    id="input-luas"
+                    class="form-range"
+                    min="0.5" max="5.0" step="0.01" value="3.84"
+                />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">GRID CONFIGURATION</label>
+                <div class="radio-group" id="radio-grid">
+                    <label class="radio-item">
+                        <input type="radio" name="grid" value="1" />
+                        <span class="radio-pill">1×1 <small>Single</small></span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="grid" value="2" />
+                        <span class="radio-pill">2×2 <small>4 sec</small></span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="grid" value="3" checked />
+                        <span class="radio-pill">3×3 <small>9 sec</small></span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="grid" value="4" />
+                        <span class="radio-pill">4×4 <small>16 sec</small></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Warning -->
+            <div id="grid-warning" class="grid-warning" style="display:none;"></div>
+
+            <!-- Buttons -->
+            <div class="btn-row">
+                <button id="btn-scan" class="btn btn-scan">INITIALIZE SCAN</button>
+                <button id="btn-reset" class="btn btn-reset">RESET VISUALS</button>
+            </div>
+
+            <!-- Report Output -->
+            <div id="output-report" class="report-wrapper">
+                <div class="empty-state animate-fade">AWAITING SYSTEM INPUT. SELECT COORDINATES TO BEGIN...</div>
+            </div>
+        </div>
+    </div><!-- end row-top -->
+
+    <!-- ── ROW 2: IMAGERY ─────────────────────────────────────────────────── -->
+    <div class="row-bottom">
+
+        <!-- ── OPTICAL RGB PANEL ── -->
+        <div class="panel panel-imagery">
+            <!--
+                PLACEHOLDER IMAGE: /static/images/placeholder-rgb.png
+                Recommended: A satellite RGB composite image of a tropical/forested area.
+                Ideal size: 800×600px or 1:1 square. Format: PNG or JPG.
+                Example: a Sentinel-2 true-color image of Kalimantan rainforest.
+                Also accepted: a stylized "NO DATA" graphic with your brand colors.
+            -->
+            <div class="imagery-header" data-expandable="rgb-info">
+                <div class="imagery-label-row">
+                    <span class="imagery-label-text">OPTICAL SPECTRUM (RGB) + GRID OVERLAY</span>
+                    <span class="expand-icon" aria-label="Toggle info">▾</span>
+                </div>
+                <div class="imagery-info-drawer" id="rgb-info">
+                    <p>The <strong>optical (RGB) image</strong> is a true-color satellite photo of the scan area — similar to what you'd see on Google Maps. Red, green, and blue bands from the satellite are combined to show the land surface as the human eye would see it.</p>
+                    <p>The colored grid overlay divides the area into sectors. Each sector is classified by the AI model into a land-use category: plantation forest, small-scale farming, grassland, or other. Greener colors indicate healthier, denser forest coverage.</p>
+                    <p>Click any sector on the minimap (in the scan results below) to zoom in and inspect a specific area in detail.</p>
+                </div>
+            </div>
+            <div class="imagery-placeholder" id="rgb-placeholder">
+                <img
+                    src="/static/images/placeholder-rgb.png"
+                    alt="No satellite data yet"
+                    class="placeholder-img"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                />
+                <!-- Fallback text if placeholder image is missing -->
+                <span class="placeholder-fallback" style="display:none;">NO DATA</span>
+            </div>
+            <img id="img-rgb" class="imagery-img hidden" src="" alt="RGB Satellite" />
+        </div>
+
+        <!-- ── THERMAL IR PANEL ── -->
+        <div class="panel panel-imagery">
+            <!--
+                PLACEHOLDER IMAGE: /static/images/placeholder-ir.png
+                Recommended: A near-infrared (NIR) satellite image of a tropical area.
+                Ideal size: 800×600px or 1:1 square. Format: PNG or JPG.
+                NIR images typically show healthy vegetation as bright/white,
+                and cleared/degraded land as dark areas.
+                Example: Sentinel-2 Band 8 image showing vegetation health contrast.
+                Also accepted: a color-mapped false-color IR visualization.
+            -->
+            <div class="imagery-header" data-expandable="ir-info">
+                <div class="imagery-label-row">
+                    <span class="imagery-label-text">THERMAL SPECTRUM (IR)</span>
+                    <span class="expand-icon" aria-label="Toggle info">▾</span>
+                </div>
+                <div class="imagery-info-drawer" id="ir-info">
+                    <p>The <strong>infrared (IR) image</strong> uses the near-infrared band (Band 8) from the satellite — a wavelength of light invisible to the human eye, but highly sensitive to the health of vegetation.</p>
+                    <p>Healthy, dense forest absorbs and reflects near-infrared light differently from bare soil or cleared land. In this image, <strong>brighter areas typically mean healthier, more intact forest</strong>, while darker patches may indicate deforestation, fires, or agricultural conversion.</p>
+                    <p>Scientists and forest rangers use infrared imagery to detect early signs of forest degradation that can't yet be seen in regular photos — making it a critical early-warning tool for conservation efforts.</p>
+                </div>
+            </div>
+            <div class="imagery-placeholder" id="ir-placeholder">
+                <img
+                    src="/static/images/placeholder-ir.png"
+                    alt="No infrared data yet"
+                    class="placeholder-img"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                />
+                <span class="placeholder-fallback" style="display:none;">NO DATA</span>
+            </div>
+            <img id="img-ir" class="imagery-img hidden" src="" alt="IR Satellite" />
+        </div>
+    </div><!-- end row-bottom -->
+
+    <!-- ── INFO SECTIONS ──────────────────────────────────────────────────── -->
+    <div class="row-info">
+
+        <!-- ABOUT SCAN RADIUS -->
+        <div class="info-section-card">
+            <div class="info-section-header" data-expandable="info-radius">
+                <span class="info-section-title">WHAT IS SCAN RADIUS?</span>
+                <span class="expand-icon">▾</span>
+            </div>
+            <div class="info-section-drawer" id="info-radius">
+                <p>The <strong>scan radius</strong> defines how wide an area the system captures from the satellite — measured from the center of your selected coordinates outward in kilometers. A radius of 3.84 km covers a circle roughly 7.7 km across.</p>
+                <p>Larger radii give you a broader view of the landscape but reduce the level of detail per sector. Smaller radii zoom in tighter and give the AI model more pixel data per sector, which can improve classification accuracy for fine-grained land types like small farms or narrow tree corridors.</p>
+                <p>For general monitoring of a forest block or plantation boundary, 2–4 km works well. For high-precision analysis of a specific clearing or patch, consider 0.5–1.5 km with a 1×1 or 2×2 grid.</p>
+            </div>
+        </div>
+
+        <!-- ABOUT GRID CONFIGURATION -->
+        <div class="info-section-card">
+            <div class="info-section-header" data-expandable="info-grid">
+                <span class="info-section-title">WHAT IS GRID CONFIGURATION?</span>
+                <span class="expand-icon">▾</span>
+            </div>
+            <div class="info-section-drawer" id="info-grid">
+                <p>The <strong>grid configuration</strong> divides the scan area into smaller sectors that are each analyzed independently. A 3×3 grid splits the area into 9 sectors; a 4×4 grid creates 16 sectors.</p>
+                <p>More sectors means a more detailed spatial picture — you can see exactly which part of the area is forested versus cleared, rather than just the overall classification. This is useful for identifying patterns like edge clearing (trees cut from the boundary inward) or scattered agricultural plots within a forest block.</p>
+                <p>Each additional sector requires one AI model inference, so larger grids take more time to process. The estimated number of sectors is shown on each grid option button.</p>
+            </div>
+        </div>
+
+        <!-- ABOUT LAND USE CLASSES -->
+        <div class="info-section-card">
+            <div class="info-section-header" data-expandable="info-classes">
+                <span class="info-section-title">LAND USE CLASSIFICATIONS</span>
+                <span class="expand-icon">▾</span>
+            </div>
+            <div class="info-section-drawer" id="info-classes">
+                <p><strong>Plantation</strong> — Large-scale, organized tree crops such as palm oil, rubber, or industrial timber. These areas have a very regular, grid-like pattern visible from above. While they support some tree cover, plantations replace biodiverse primary forest and are a leading driver of deforestation.</p>
+                <p><strong>Smallholder Agriculture</strong> — Small-scale farming patches typically operated by local communities. These appear as irregular, mixed-crop plots and are common at forest edges. They're a significant cause of forest clearing in many parts of Southeast Asia.</p>
+                <p><strong>Grassland / Shrubland</strong> — Open land dominated by grasses or low shrubs, often resulting from repeated burning or severe forest degradation. These areas are particularly vulnerable to fire and may indicate land in transitional state.</p>
+                <p><strong>Other</strong> — Areas that don't fit neatly into the above categories, including bare soil, water bodies, built-up land, or anomalous patches. Treat these as requiring further manual inspection.</p>
+            </div>
+        </div>
+
+        <!-- ABOUT CONFIDENCE SCORE -->
+        <div class="info-section-card">
+            <div class="info-section-header" data-expandable="info-confidence">
+                <span class="info-section-title">WHAT IS CONFIDENCE SCORE?</span>
+                <span class="expand-icon">▾</span>
+            </div>
+            <div class="info-section-drawer" id="info-confidence">
+                <p>The <strong>confidence score</strong> tells you how certain the AI model is about its classification of a given sector. A score of 95% means the model is very sure; a score of 55% means the result is uncertain and should be treated with caution.</p>
+                <p>Low confidence often occurs at boundaries between land types, in areas affected by cloud cover or shadows, or in transitional landscapes that don't match the model's training examples well. In those cases, we recommend manually reviewing the optical and infrared images alongside the classification result.</p>
+                <p>This system uses a Swin Transformer V2 deep learning model trained on satellite imagery of Indonesian forests. It performs best on Kalimantan (Borneo) and Sumatra landscapes.</p>
+            </div>
+        </div>
+
+    </div><!-- end row-info -->
+
+</main>
+
+<!-- ═══ SAT IMAGE MODAL ═══ -->
+<div id="sat-modal" class="sat-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Satellite image enlarged">
+    <div class="sat-modal-inner">
+        <img id="sat-modal-img" src="" alt="Enlarged satellite view" />
+        <div id="sat-modal-caption" class="sat-modal-caption"></div>
+    </div>
+</div>
+
+<!-- App JS -->
+<script src="/static/js/script.js"></script>
+</body>
+</html>
