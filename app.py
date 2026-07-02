@@ -77,6 +77,18 @@ class DynamicDualStream(nn.Module):
         return self.fusion(torch.cat((self.rgb_backbone(rgb), self.ir_cnn(ir)), dim=1))
 
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'Model_SwinV2.pth')
+MODEL_URL  = os.environ.get('MODEL_URL')  # e.g. a GitHub Release asset direct-download link
+
+if not os.path.exists(MODEL_PATH) and MODEL_URL:
+    try:
+        import urllib.request
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        print(f"⬇️  Downloading model weights from {MODEL_URL} ...")
+        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+        print("✅ Model weights downloaded.")
+    except Exception as e:
+        print(f"⚠️  Model download failed: {e}")
+
 model = None
 if os.path.exists(MODEL_PATH):
     try:
